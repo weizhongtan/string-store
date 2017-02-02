@@ -12,24 +12,33 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 
 var app = (0, _express2.default)();
 var port = process.env.PORT || 8000;
+var ip = process.env.IP || 'localhost';
+var mongoUrl = process.env.MONGODB_URI || 'mongodb://' + process.env.IP + '/local';
 
-app.use(_bodyParser2.default.urlencoded({
+console.log(mongoUrl);
+
+// apply body parser middleware to post requests
+app.post(_bodyParser2.default.urlencoded({
   extended: true
 }));
+app.post(_bodyParser2.default.json());
 
-app.use(_bodyParser2.default.json());
-
-// router for string retrieval
+// router for string creation
 app.post('/messages/', function (req, res) {
-  res.write(JSON.stringify(Object.getOwnPropertyNames(req.body)));
+  // extract the text from the post body
+  var text = Object.getOwnPropertyNames(req.body);
+  console.log(text);
+  res.end();
 });
 
+// router for string retrieval
+app.get('/messages/:id', function (req, res) {});
+
+// default response
 app.use('/*', function (req, res) {
   res.end('Usage: $domain/messages/ -d "message"');
 });
 
-// router for string creation
-
-app.listen(port, function () {
-  console.log('Server listening on port ' + port + '.');
+app.listen(port, ip, function () {
+  console.log('Server listening on ' + ip + ':' + port + '.');
 });
