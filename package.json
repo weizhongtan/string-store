@@ -1,0 +1,30 @@
+{
+  "name": "string-store",
+  "version": "1.0.0",
+  "description": "Text string storage and retrieval micro-service.",
+  "main": "index.js",
+  "dependencies": {
+    "body-parser": "^1.16.0",
+    "express": "^4.14.1"
+  },
+  "devDependencies": {
+    "babel-cli": "^6.22.2",
+    "babel-preset-es2015": "^6.22.0",
+    "babel-preset-stage-0": "^6.22.0"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "./node_modules/.bin/babel src --out-dir build --copy-files --presets es2015,stage-0",
+    "start": "node ./build/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/weizhongtan/string-store.git"
+  },
+  "author": "wzt",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/weizhongtan/string-store/issues"
+  },
+  "homepage": "https://github.com/weizhongtan/string-store#readme"
+}
