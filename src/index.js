@@ -75,6 +75,9 @@ app.get('/messages/:id', (req, res) => {
         // send text as response
         if (doc) {
           res.end(doc.text)
+        } else {
+          // reject id
+          res.end('Invalid id.')
         }
       })
 
@@ -83,6 +86,7 @@ app.get('/messages/:id', (req, res) => {
     })
 
   } else {
+    // reject id
     res.end(`Invalid id.`)
   }
 })

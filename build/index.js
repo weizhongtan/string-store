@@ -7,7 +7,6 @@ var crypto = require('crypto');
 
 var app = express();
 var port = process.env.PORT || 8000;
-var ip = process.env.IP || 'localhost';
 var mongoUrl = process.env.MONGODB_URI || 'mongodb://' + ip + '/local';
 
 // apply body parser middleware to post requests
@@ -78,6 +77,9 @@ app.get('/messages/:id', function (req, res) {
         // send text as response
         if (doc) {
           res.end(doc.text);
+        } else {
+          // reject id
+          res.end('Invalid id.');
         }
       });
 
@@ -85,6 +87,7 @@ app.get('/messages/:id', function (req, res) {
       db.close();
     });
   } else {
+    // reject id
     res.end('Invalid id.');
   }
 });
@@ -94,6 +97,6 @@ app.use('/*', function (req, res) {
   res.end('Usage: $domain/messages/ -d "message"\nor:    $domain/messages/id');
 });
 
-app.listen(port, ip, function () {
-  console.log('Server listening on ' + ip + ':' + port + '.');
+app.listen(port, function () {
+  console.log('Server listening on port ' + port + '.');
 });
