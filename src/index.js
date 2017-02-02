@@ -18,14 +18,14 @@ app.use(bodyParser.urlencoded({
 app.post('/messages/', (req, res) => {
   // extract the text from the post body
   const text = Object.getOwnPropertyNames(req.body)[0]
-  
+
   // compute hash of text string
   const hash = crypto.createHash('md5').update(text).digest('hex');
 
   // open database
   MongoClient.connect(mongoUrl, (err, db) => {
     if (err) throw err
-    
+
     // open collection
     const strings = db.collection("strings")
 
@@ -57,29 +57,32 @@ app.post('/messages/', (req, res) => {
 app.get('/messages/:id', (req, res) => {
   // extract id parameter from url
   const id = req.params.id
-  
+
   // validate id length
   if (id.length > 0) {
     // open database
     MongoClient.connect(mongoUrl, (err, db) => {
       if (err) throw err
-      
+
       // open collection
       const strings = db.collection("strings")
-      
+
       // search for entry by index (binary tree search is very fast)
       strings.find( { _id: id } )
       // convert cursor to array
       .toArray((err, docs) => {
         const doc = docs[0]
-        
+
         // send text as response
         if (doc) {
           res.end(doc.text)
         }
       })
+
+      // close database
+      db.close()
     })
-    
+
   } else {
     res.end(`Invalid id.`)
   }

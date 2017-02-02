@@ -1,42 +1,97 @@
 'use strict';
 
-var _express = require('express');
+var express = require('express');
+var bodyParser = require('body-parser');
+var MongoClient = require('mongodb').MongoClient;
+var crypto = require('crypto');
 
-var _express2 = _interopRequireDefault(_express);
-
-var _bodyParser = require('body-parser');
-
-var _bodyParser2 = _interopRequireDefault(_bodyParser);
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-
-var app = (0, _express2.default)();
+var app = express();
 var port = process.env.PORT || 8000;
 var ip = process.env.IP || 'localhost';
-var mongoUrl = process.env.MONGODB_URI || 'mongodb://' + process.env.IP + '/local';
-
-console.log(mongoUrl);
+var mongoUrl = process.env.MONGODB_URI || 'mongodb://' + ip + '/local';
 
 // apply body parser middleware to post requests
-app.post(_bodyParser2.default.urlencoded({
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({
   extended: true
 }));
-app.post(_bodyParser2.default.json());
 
 // router for string creation
 app.post('/messages/', function (req, res) {
   // extract the text from the post body
-  var text = Object.getOwnPropertyNames(req.body);
-  console.log(text);
-  res.end();
+  var text = Object.getOwnPropertyNames(req.body)[0];
+
+  // compute hash of text string
+  var hash = crypto.createHash('md5').update(text).digest('hex');
+
+  // open database
+  MongoClient.connect(mongoUrl, function (err, db) {
+    if (err) throw err;
+
+    // open collection
+    var strings = db.collection("strings");
+
+    // define text document
+    var doc = { _id: hash, text: text };
+
+    strings.insert(doc, function (err, data) {
+      if (err) {
+        // catch errors due to index duplication
+        if (err.code === 11000) {
+          // return duplicate id to user
+          res.end(JSON.stringify({ id: hash }));
+        } else {
+          // otherwise throw other errors
+          throw err;
+        }
+      } else {
+        // return id to user
+        res.end(JSON.stringify({ id: data.ops[0]._id }));
+      }
+
+      // close database
+      db.close();
+    });
+  });
 });
 
 // router for string retrieval
-app.get('/messages/:id', function (req, res) {});
+app.get('/messages/:id', function (req, res) {
+  // extract id parameter from url
+  var id = req.params.id;
+
+  // validate id length
+  if (id.length > 0) {
+    // open database
+    MongoClient.connect(mongoUrl, function (err, db) {
+      if (err) throw err;
+
+      // open collection
+      var strings = db.collection("strings");
+
+      // search for entry by index (binary tree search is very fast)
+      strings.find({ _id: id })
+      // convert cursor to array
+      .toArray(function (err, docs) {
+        var doc = docs[0];
+
+        // send text as response
+        if (doc) {
+          res.end(doc.text);
+        }
+      });
+
+      // close database
+      db.close();
+    });
+  } else {
+    res.end('Invalid id.');
+  }
+});
 
 // default response
 app.use('/*', function (req, res) {
-  res.end('Usage: $domain/messages/ -d "message"');
+  res.end('Usage: $domain/messages/ -d "message"\nor:    $domain/messages/id');
 });
 
 app.listen(port, ip, function () {
