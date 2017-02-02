@@ -1,6 +1,7 @@
 const express = require('express')
 const bodyParser = require('body-parser')
 const MongoClient = require('mongodb').MongoClient
+const crypto = require('crypto')
 
 const app = express()
 const port = process.env.PORT || 8000
@@ -17,23 +18,34 @@ app.use(bodyParser.urlencoded({
 app.post('/messages/', (req, res) => {
   // extract the text from the post body
   const text = Object.getOwnPropertyNames(req.body)[0]
+  
+  // compute hash of text string
+  const hash = crypto.createHash('md5').update(text).digest('hex');
 
   // open database
   MongoClient.connect(mongoUrl, (err, db) => {
     if (err) throw err
+    
     // open collection
     const strings = db.collection("strings")
 
-    // create value hash as the primary key
-    strings.createIndex( { _id: "hashed" } )
-
     // define text document
-    const doc = { text }
+    const doc = { _id: hash, text }
 
     strings.insert(doc, (err, data) => {
-      if (err) throw err
-      // confirm data
-      res.end(JSON.stringify(data))
+      if (err) {
+        // catch errors due to index duplication
+        if (err.code === 11000) {
+          // return duplicate id to user
+          res.end(JSON.stringify( { id: hash } ))
+        } else {
+          // otherwise throw other errors
+          throw err
+        }
+      } else {
+        // return id to user
+        res.end(JSON.stringify({ id: data.ops[0]._id }))
+      }
 
       // close database
       db.close()
@@ -43,11 +55,34 @@ app.post('/messages/', (req, res) => {
 
 // router for string retrieval
 app.get('/messages/:id', (req, res) => {
+  // extract id parameter from url
   const id = req.params.id
+  
+  // validate id length
   if (id.length > 0) {
-    // get retreive from MONGODB_URI
+    // open database
+    MongoClient.connect(mongoUrl, (err, db) => {
+      if (err) throw err
+      
+      // open collection
+      const strings = db.collection("strings")
+      
+      // search for entry by index (binary tree search is very fast)
+      strings.find( { _id: id } )
+      // convert cursor to array
+      .toArray((err, docs) => {
+        const doc = docs[0]
+        
+        // send text as response
+        if (doc) {
+          res.end(doc.text)
+        }
+      })
+    })
+    
+  } else {
+    res.end(`Invalid id.`)
   }
-  res.end(`getting string id: ${id}`)
 })
 
 // default response
