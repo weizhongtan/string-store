@@ -18,38 +18,43 @@ app.post('/messages/', (req, res) => {
   // extract the text from the post body
   const text = Object.getOwnPropertyNames(req.body)[0]
 
-  // compute hash of text string
-  const hash = crypto.createHash('md5').update(text).digest('hex');
+  // reject incredibly long strings
+  if (text.length > 1000) {
+    res.end('String must be less than 1000 characters long.')
+  } else {
+    // compute hash of text string
+    const hash = crypto.createHash('md5').update(text).digest('hex');
 
-  // open database
-  MongoClient.connect(mongoUrl, (err, db) => {
-    if (err) throw err
+    // open database
+    MongoClient.connect(mongoUrl, (err, db) => {
+      if (err) throw err
 
-    // open collection
-    const strings = db.collection("strings")
+      // open collection
+      const strings = db.collection("strings")
 
-    // define text document
-    const doc = { _id: hash, text }
+      // define text document
+      const doc = { _id: hash, text }
 
-    strings.insert(doc, (err, data) => {
-      if (err) {
-        // catch errors due to index duplication
-        if (err.code === 11000) {
-          // return duplicate id to user
-          res.end(JSON.stringify( { id: hash } ))
+      strings.insert(doc, (err, data) => {
+        if (err) {
+          // catch errors due to index duplication
+          if (err.code === 11000) {
+            // return duplicate id to user
+            res.end(JSON.stringify( { id: hash } ))
+          } else {
+            // otherwise throw other errors
+            throw err
+          }
         } else {
-          // otherwise throw other errors
-          throw err
+          // return id to user
+          res.end(JSON.stringify({ id: data.ops[0]._id }))
         }
-      } else {
-        // return id to user
-        res.end(JSON.stringify({ id: data.ops[0]._id }))
-      }
 
-      // close database
-      db.close()
+        // close database
+        db.close()
+      })
     })
-  })
+  }
 })
 
 // router for string retrieval

@@ -1,0 +1,11 @@
+Design choices:
+* used express for it's ease of setup for micro-service servers
+* two app methods: get and post
+* mongodb store to store keys and values
+* hash generated to be used as primary key to prevent duplicate strings in the database
+* primary keys are indexed by
+
+Possible to do:
+* better string and id validation
+* better testing
+* compression
