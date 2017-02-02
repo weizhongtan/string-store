@@ -5,7 +5,6 @@ const crypto = require('crypto')
 
 const app = express()
 const port = process.env.PORT || 8000
-const ip = process.env.IP || 'localhost'
 const mongoUrl = process.env.MONGODB_URI || `mongodb://${ip}/local`
 
 // apply body parser middleware to post requests
@@ -93,6 +92,6 @@ app.use('/*', (req, res) => {
   res.end('Usage: $domain/messages/ -d "message"\nor:    $domain/messages/id')
 })
 
-app.listen(port, ip, () => {
-  console.log(`Server listening on ${ip}:${port}.`)
+app.listen(port, () => {
+  console.log(`Server listening on port ${port}.`)
 })
