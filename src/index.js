@@ -106,7 +106,7 @@ app.use('/messages/:id', (req, res) => {
           // send text as response
           const doc = docs[0]
           if (doc) {
-            res.end(`${doc.text}`)
+            res.end(`${doc.text}\n`)
           } else {
             // reject id if not found in collection
             res.end('Id not found.\n')
