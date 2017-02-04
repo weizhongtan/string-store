@@ -4,13 +4,20 @@ const express = require('express')
 const bodyParser = require('body-parser')
 const crypto = require('crypto')
 
-// open database (this must be done asyncronously)
-let db
-require('./model/db').initialize(database => db = database)
-
 const app = express()
 const port = process.env.PORT || 8000
 const idLen = 32 // id string length for hex MD5 hash 
+
+// open database and collection (this must be done asyncronously)
+let strings
+require('./model/db').initialize(collection => {
+  strings = collection
+  
+  // once db and collection is established, start listening
+  app.listen(port, () => {
+    console.log(`Server listening on port ${port}.`)
+  })
+})
 
 // parse all application/x-www-form-urlencoded requests
 app.use(bodyParser.urlencoded( { extended: true } ))
@@ -26,9 +33,6 @@ app.post('/messages/', (req, res) => {
   if (text.length > 1000000) {
     res.end('Messages must be <1MB.\n')
   } else {
-    // open collection
-    const strings = db.collection("strings")
-    
     // compute hash of text string
     const hash = crypto.createHash('md5').update(text).digest('hex')
 
@@ -36,7 +40,7 @@ app.post('/messages/', (req, res) => {
     const doc = { _id: hash, text }
 
     // insert text doc into strings collection
-    strings.insert(doc, (err, data) => {
+    strings.insert(doc, {wtimeout: 1000}, (err, data) => {
       if (err) {
         // catch errors due to index duplication
         if (err.code === 11000) {
@@ -67,11 +71,8 @@ app.get('/messages/:id', (req, res) => {
     // reject incorrect length hashes
     res.end(`Id length should be ${idLen}.\n`)
   } else {
-    // open collection
-    const strings = db.collection('strings')
-
     // search for entry by index (binary tree search is very fast)
-    strings.find( { _id: id } )
+    strings.find( { _id: id } ).maxTimeMS(1000)
     // convert cursor to array
     .toArray((err, docs) => {
       if (err) {
@@ -95,8 +96,4 @@ app.get('/messages/:id', (req, res) => {
 // default response
 app.use('/*', (req, res) => {
   res.end('Usage: curl $domain/messages/ -d "message"\nor:    curl $domain/messages/id\n')
-})
-
-app.listen(port, () => {
-  console.log(`Server listening on port ${port}.`)
 })
