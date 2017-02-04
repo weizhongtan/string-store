@@ -74,7 +74,7 @@ app.get('/messages/stats', (req, res) => {
     }
 
     // return stats string
-    res.end(`There ${(num === 1) ? 'are' : 'is'} ${num} string${(num === 1) ? 's' : ''} in the database.\n`)
+    res.end(`There ${(num === 1) ? 'is' : 'are'} ${num} string${(num === 1) ? '' : 's'} in the database.\n`)
   })
 })
 
@@ -128,7 +128,7 @@ app.use('/messages/:id', (req, res) => {
 app.use('/*', (req, res) => {
   res.end(
     `Usage: curl $domain/messages/ -d "message"
-    or:    curl $domain/messages/id
-    or:    curl $domain/messages/id -X DELETE
-    or:    curl $domain/messages/stats\n`)
+or:    curl $domain/messages/id
+or:    curl $domain/messages/id -X DELETE
+or:    curl $domain/messages/stats\n`)
 })
