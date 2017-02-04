@@ -6,7 +6,7 @@ Design choices:
 * primary keys are indexed into a binary tree so that they can be searched in O(log(n)) time
 
 Possible to do:
-* store strings server-side as well for local implementation
+* !!! make it work locally !!!
 * better string and id validation (to not accept additional object keys in post data)
 * better testing (edge cases)
 * compression

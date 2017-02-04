@@ -1,3 +1,5 @@
+"use strict"
+
 const express = require('express')
 const bodyParser = require('body-parser')
 const MongoClient = require('mongodb').MongoClient
@@ -5,15 +7,15 @@ const crypto = require('crypto')
 
 const app = express()
 const port = process.env.PORT || 8000
-const idLen = 32 // hash length for hex MD5 hash
+const idLen = 32 // id string length for hex MD5 hash
 
 // set mongodb url for heroku/c9.io running environments
 const mongoUrl = process.env.MONGODB_URI || `mongodb://${process.env.IP}/local` || null
 
-// parse application/x-www-form-urlencoded requests
-app.use(bodyParser.urlencoded( { extended: true } ))
+// parse all application/x-www-form-urlencoded requests
+app.use(bodyParser.urlencoded({ extended: true }))
 
-// router for string creation
+// route for string insertion
 app.post('/messages/', (req, res) => {
   // extract the text from the post body
   const text = Object.getOwnPropertyNames(req.body)[0]
@@ -27,7 +29,11 @@ app.post('/messages/', (req, res) => {
 
     // open database
     MongoClient.connect(mongoUrl, (err, db) => {
-      if (err) throw err
+      if (err) {
+        console.error(err)
+        res.end('Couldn\'t connect to database.\n')
+        return
+      }
 
       // open collection
       const strings = db.collection("strings")
@@ -41,24 +47,24 @@ app.post('/messages/', (req, res) => {
           // catch errors due to index duplication
           if (err.code === 11000) {
             // return duplicate id to user
-            res.end(`${JSON.stringify( { id: hash } )}\n`)
+            res.end(`${JSON.stringify({ id: hash })}\n`)
           } else {
-            // throw other errors
-            throw err
+            // deal with other errors
+            console.error(err)
+            res.end('Couldn\'t insert text string into database.\n')
           }
         } else {
           // return id to user
-          res.end(`${JSON.stringify( { id: data.ops[0]._id } )}\n`)
+          res.end(`${JSON.stringify({ id: data.ops[0]._id })}\n`)
         }
 
-        // close database
         db.close()
       })
     })
   }
 })
 
-// router for string retrieval
+// route for string retrieval
 app.get('/messages/:id', (req, res) => {
   // extract id parameter from url
   const id = req.params.id
@@ -70,7 +76,11 @@ app.get('/messages/:id', (req, res) => {
   } else {
     // open database
     MongoClient.connect(mongoUrl, (err, db) => {
-      if (err) throw err
+      if (err) {
+        console.error(err)
+        res.end('Couldn\'t connect to database.\n')
+        return
+      }
 
       // open collection
       const strings = db.collection('strings')
@@ -78,26 +88,24 @@ app.get('/messages/:id', (req, res) => {
       // search for entry by index (binary tree search is very fast)
       strings.find( { _id: id } )
       // convert cursor to array
-      .toArray((err, docs) => {
-        if (err) throw err
+        .toArray((err, docs) => {
+          if (err) {
+            console.error(err)
+            res.end('Error finding text string.\n')
+            return
+          }
 
-        // send text as response
-        const doc = docs[0]
-        if (doc) {
-          res.end(`${doc.text}\n`)
-        } else {
-          // reject id if not found in collection
-          res.end('Id not found.\n')
-        }
-      })
+          // send text as response
+          const doc = docs[0]
+          res.end(`${doc ? doc.text : 'Id not found.'}\n`)
+        })
 
-      // close database
       db.close()
     })
   }
 })
 
-// default response
+// default response to all other routes
 app.use('/*', (req, res) => {
   res.end('Usage: curl $domain/messages/ -d "message"\nor:    curl $domain/messages/id\n')
 })
