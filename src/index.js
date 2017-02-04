@@ -1,21 +1,23 @@
-"use strict"
+'use strict'
 
 const express = require('express')
 const bodyParser = require('body-parser')
-const MongoClient = require('mongodb').MongoClient
 const crypto = require('crypto')
+
+// open database (this must be done asyncronously)
+let db
+require('./model/db').initialize(database => db = database)
 
 const app = express()
 const port = process.env.PORT || 8000
-const idLen = 32 // id string length for hex MD5 hash
-
-// set mongodb url for heroku/c9.io running environments
-const mongoUrl = process.env.MONGODB_URI || `mongodb://${process.env.IP}/local` || null
+const idLen = 32 // id string length for hex MD5 hash 
 
 // parse all application/x-www-form-urlencoded requests
-app.use(bodyParser.urlencoded({ extended: true }))
+app.use(bodyParser.urlencoded( { extended: true } ))
 
-// route for string insertion
+/*
+* route for string insertion
+*/ 
 app.post('/messages/', (req, res) => {
   // extract the text from the post body
   const text = Object.getOwnPropertyNames(req.body)[0]
@@ -24,47 +26,38 @@ app.post('/messages/', (req, res) => {
   if (text.length > 1000000) {
     res.end('Messages must be <1MB.\n')
   } else {
+    // open collection
+    const strings = db.collection("strings")
+    
     // compute hash of text string
     const hash = crypto.createHash('md5').update(text).digest('hex')
 
-    // open database
-    MongoClient.connect(mongoUrl, (err, db) => {
+    // define text document
+    const doc = { _id: hash, text }
+
+    // insert text doc into strings collection
+    strings.insert(doc, (err, data) => {
       if (err) {
-        console.error(err)
-        res.end('Couldn\'t connect to database.\n')
-        return
-      }
-
-      // open collection
-      const strings = db.collection("strings")
-
-      // define text document
-      const doc = { _id: hash, text }
-
-      // insert text doc into strings collection
-      strings.insert(doc, (err, data) => {
-        if (err) {
-          // catch errors due to index duplication
-          if (err.code === 11000) {
-            // return duplicate id to user
-            res.end(`${JSON.stringify({ id: hash })}\n`)
-          } else {
-            // deal with other errors
-            console.error(err)
-            res.end('Couldn\'t insert text string into database.\n')
-          }
+        // catch errors due to index duplication
+        if (err.code === 11000) {
+          // return duplicate id to user
+          res.end(`${JSON.stringify( { id: hash } )}\n`)
         } else {
-          // return id to user
-          res.end(`${JSON.stringify({ id: data.ops[0]._id })}\n`)
+          // deal with other errors
+          console.warn('Couldn\'t insert text string into database.\n')
+          res.end('Couldn\'t insert text string into database.\n')
         }
-
-        db.close()
-      })
+      } else {
+        // return id to user
+        res.end(`${JSON.stringify( { id: data.ops[0]._id } )}\n`)
+      }
     })
   }
 })
 
-// route for string retrieval
+/*
+* route for string retrieval
+*/
 app.get('/messages/:id', (req, res) => {
   // extract id parameter from url
   const id = req.params.id
@@ -74,38 +67,32 @@ app.get('/messages/:id', (req, res) => {
     // reject incorrect length hashes
     res.end(`Id length should be ${idLen}.\n`)
   } else {
-    // open database
-    MongoClient.connect(mongoUrl, (err, db) => {
+    // open collection
+    const strings = db.collection('strings')
+
+    // search for entry by index (binary tree search is very fast)
+    strings.find( { _id: id } )
+    // convert cursor to array
+    .toArray((err, docs) => {
       if (err) {
-        console.error(err)
-        res.end('Couldn\'t connect to database.\n')
+        console.warn('Error finding text string.\n')
+        res.end('Error finding text string.\n')
         return
       }
 
-      // open collection
-      const strings = db.collection('strings')
-
-      // search for entry by index (binary tree search is very fast)
-      strings.find( { _id: id } )
-      // convert cursor to array
-        .toArray((err, docs) => {
-          if (err) {
-            console.error(err)
-            res.end('Error finding text string.\n')
-            return
-          }
-
-          // send text as response
-          const doc = docs[0]
-          res.end(`${doc ? doc.text : 'Id not found.'}\n`)
-        })
-
-      db.close()
+      // send text as response
+      const doc = docs[0]
+      if (doc) {
+        res.end(`${doc.text}`)
+      } else {
+        // reject id if not found in collection
+        res.end('Id not found.\n')
+      }
     })
   }
 })
 
-// default response to all other routes
+// default response
 app.use('/*', (req, res) => {
   res.end('Usage: curl $domain/messages/ -d "message"\nor:    curl $domain/messages/id\n')
 })
