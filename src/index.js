@@ -9,7 +9,7 @@ const app = express()
 const port = process.env.PORT || 8000
 const idLen = 32 // id string length for hex MD5 hash
 
-// open database and collection (this must be done asyncronously)
+// open database and collection asyncronously
 let strings
 require('./model/db').initialize(collection => {
   strings = collection
@@ -20,15 +20,15 @@ require('./model/db').initialize(collection => {
   })
 })
 
-// parse all application/x-www-form-urlencoded requests
-app.use(bodyParser.urlencoded( { extended: true } ))
+// parse all requests bodies as text
+app.use(bodyParser.text({type: '*/*'}))
 
 /*
 * route for string insertion
 */
 app.post('/messages/', (req, res) => {
   // extract the text from the post body
-  const text = Object.getOwnPropertyNames(req.body)[0]
+  const text = req.body
 
   if (!text) {
     // reject invalid strings
@@ -52,7 +52,7 @@ app.post('/messages/', (req, res) => {
           res.end(`${JSON.stringify( { id: hash } )}\n`)
         } else {
           // deal with other errors
-          console.warn('Couldn\'t insert text string into database.\n')
+          console.error(err)
           res.end('Couldn\'t insert text string into database.\n')
         }
       } else {
@@ -69,6 +69,7 @@ app.post('/messages/', (req, res) => {
 app.get('/messages/stats', (req, res) => {
   strings.count({}, (err, num) => {
     if (err) {
+      console.error(err)
       res.end('Could not retrieve stats.\n')
       return
     }
@@ -98,7 +99,7 @@ app.use('/messages/:id', (req, res) => {
         // convert cursor to array
         .toArray((err, docs) => {
           if (err) {
-            console.warn('Error finding text string.\n')
+            console.error(err)
             res.end('Error finding text string.\n')
             return
           }
@@ -115,6 +116,11 @@ app.use('/messages/:id', (req, res) => {
       } else {
         // process DELETE requests
         strings.deleteOne({ _id: req.params.id }, (err, data) => {
+          if (err) {
+            console.error(err)
+            res.end(`Text string with id: ${req.params.id} could not be deleted. (it might not exist)`)
+            return
+          }
           res.end(`Text string with id: ${req.params.id} was deleted.\n`)
         })
       }
