@@ -30,11 +30,11 @@ app.post('/messages/', (req, res) => {
   // extract the text from the post body
   const text = req.body
 
+  // reject invalid strings (eg empty)
   if (!text) {
-    // reject invalid strings
     res.end('Invalid string.\n')
+  // reject incredibly long strings
   } else if (text.length > 1000000) {
-    // reject incredibly long strings
     res.end('Messages must be <1MB.\n')
   } else {
     // compute hash of text string
@@ -80,6 +80,27 @@ app.get('/messages/stats', (req, res) => {
 })
 
 /*
+* route for database id's retrieval
+*/
+app.get('/messages/all', (req, res) => {
+  strings.find({}).toArray((err, docs) => {
+    if (err) {
+      console.error(err)
+      res.end('Error retrieving text ids.\n')
+      return
+    }
+
+    // extract ids from all documents in the database and build response string
+    let response = ''
+    docs.forEach((doc) => {
+      response += `${doc._id}\n`
+    })
+
+    res.end(response)
+  })
+})
+
+/*
 * route for string retrieval/deletion
 */
 app.use('/messages/:id', (req, res) => {
@@ -95,9 +116,7 @@ app.use('/messages/:id', (req, res) => {
       // process GET requests here
       if (req.method === 'GET') {
         // search for entry by index (binary tree search is very fast)
-        strings.find({ _id: id })
-        // convert cursor to array
-        .toArray((err, docs) => {
+        strings.find({ _id: id }).toArray((err, docs) => {
           if (err) {
             console.error(err)
             res.end('Error finding text string.\n')
@@ -121,6 +140,7 @@ app.use('/messages/:id', (req, res) => {
             res.end(`Text string with id: ${req.params.id} could not be deleted. (it might not exist)`)
             return
           }
+
           res.end(`Text string with id: ${req.params.id} was deleted.\n`)
         })
       }
@@ -132,9 +152,9 @@ app.use('/messages/:id', (req, res) => {
 
 // default response
 app.use('/*', (req, res) => {
-  res.end(
-    `Usage: curl $domain/messages/ -d "message"
+  res.end(`Usage: curl $domain/messages/ -d "message"
 or:    curl $domain/messages/id
 or:    curl $domain/messages/id -X DELETE
-or:    curl $domain/messages/stats\n`)
-})
+or:    curl $domain/messages/all
+or:    curl $domain/messages/stats\n`
+)})
