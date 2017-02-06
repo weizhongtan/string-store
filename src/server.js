@@ -8,17 +8,16 @@ const app = express()
 const port = process.env.PORT || 8000
 
 // open database and collection asyncronously
-let strings
 require('./model/db').initialize(collection => {
-  strings = collection
+  const strings = collection
 
   // parse all requests bodies as text
   app.use(bodyParser.text({type: '*/*'}))
 
   // add routes
-  app.use(require('./routes/get-all.js')(strings))
+  app.use(require('./routes/get-all-ids.js')(strings))
   app.use(require('./routes/get-stats.js')(strings))
-  app.use(require('./routes/insert.js')(strings))
+  app.use(require('./routes/insert-string.js')(strings))
   app.use(require('./routes/get-or-delete-id.js')(strings))
 
   // default response
