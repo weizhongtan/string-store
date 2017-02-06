@@ -16,7 +16,7 @@
   },
   "scripts": {
     "build": "./node_modules/.bin/babel src --out-dir build --copy-files --presets es2015,stage-0",
-    "start": "node ./src/index.js"
+    "start": "node ./src/server.js"
   },
   "repository": {
     "type": "git",
