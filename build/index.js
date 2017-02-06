@@ -9,7 +9,7 @@ var app = express();
 var port = process.env.PORT || 8000;
 var idLen = 32; // id string length for hex MD5 hash
 
-// open database and collection (this must be done asyncronously)
+// open database and collection asyncronously
 var strings = void 0;
 require('./model/db').initialize(function (collection) {
   strings = collection;
@@ -20,21 +20,21 @@ require('./model/db').initialize(function (collection) {
   });
 });
 
-// parse all application/x-www-form-urlencoded requests
-app.use(bodyParser.urlencoded({ extended: true }));
+// parse all requests bodies as text
+app.use(bodyParser.text({ type: '*/*' }));
 
 /*
 * route for string insertion
 */
 app.post('/messages/', function (req, res) {
   // extract the text from the post body
-  var text = Object.getOwnPropertyNames(req.body)[0];
+  var text = req.body;
 
+  // reject invalid strings (eg empty)
   if (!text) {
-    // reject invalid strings
     res.end('Invalid string.\n');
-  } else if (text.length > 1000000) {
     // reject incredibly long strings
+  } else if (text.length > 1000000) {
     res.end('Messages must be <1MB.\n');
   } else {
     (function () {
@@ -53,7 +53,7 @@ app.post('/messages/', function (req, res) {
             res.end(JSON.stringify({ id: hash }) + '\n');
           } else {
             // deal with other errors
-            console.warn('Couldn\'t insert text string into database.\n');
+            console.error(err);
             res.end('Couldn\'t insert text string into database.\n');
           }
         } else {
@@ -71,12 +71,34 @@ app.post('/messages/', function (req, res) {
 app.get('/messages/stats', function (req, res) {
   strings.count({}, function (err, num) {
     if (err) {
+      console.error(err);
       res.end('Could not retrieve stats.\n');
       return;
     }
 
     // return stats string
     res.end('There ' + (num === 1 ? 'is' : 'are') + ' ' + num + ' string' + (num === 1 ? '' : 's') + ' in the database.\n');
+  });
+});
+
+/*
+* route for database id's retrieval
+*/
+app.get('/messages/all', function (req, res) {
+  strings.find({}).toArray(function (err, docs) {
+    if (err) {
+      console.error(err);
+      res.end('Error retrieving text ids.\n');
+      return;
+    }
+
+    // extract ids from all documents in the database and build response string
+    var response = '';
+    docs.forEach(function (doc) {
+      response += doc._id + '\n';
+    });
+
+    res.end(response);
   });
 });
 
@@ -96,11 +118,9 @@ app.use('/messages/:id', function (req, res) {
       // process GET requests here
       if (req.method === 'GET') {
         // search for entry by index (binary tree search is very fast)
-        strings.find({ _id: id })
-        // convert cursor to array
-        .toArray(function (err, docs) {
+        strings.find({ _id: id }).toArray(function (err, docs) {
           if (err) {
-            console.warn('Error finding text string.\n');
+            console.error(err);
             res.end('Error finding text string.\n');
             return;
           }
@@ -108,7 +128,7 @@ app.use('/messages/:id', function (req, res) {
           // send text as response
           var doc = docs[0];
           if (doc) {
-            res.end('' + doc.text);
+            res.end(doc.text + '\n');
           } else {
             // reject id if not found in collection
             res.end('Id not found.\n');
@@ -117,6 +137,12 @@ app.use('/messages/:id', function (req, res) {
       } else {
         // process DELETE requests
         strings.deleteOne({ _id: req.params.id }, function (err, data) {
+          if (err) {
+            console.error(err);
+            res.end('Text string with id: ' + req.params.id + ' could not be deleted. (it might not exist)');
+            return;
+          }
+
           res.end('Text string with id: ' + req.params.id + ' was deleted.\n');
         });
       }
@@ -128,5 +154,5 @@ app.use('/messages/:id', function (req, res) {
 
 // default response
 app.use('/*', function (req, res) {
-  res.end('Usage: curl $domain/messages/ -d "message"\nor:    curl $domain/messages/id\nor:    curl $domain/messages/id -X DELETE\nor:    curl $domain/messages/stats\n');
+  res.end('Usage: curl $domain/messages/ -d "message"\nor:    curl $domain/messages/id\nor:    curl $domain/messages/id -X DELETE\nor:    curl $domain/messages/all\nor:    curl $domain/messages/stats\n');
 });
