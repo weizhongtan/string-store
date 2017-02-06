@@ -22,11 +22,12 @@ require('./model/db').initialize(collection => {
 
   // default response
   app.use('/*', (req, res) => {
-    res.end(`Usage: curl $domain/messages/ -d "message"
-  or:    curl $domain/messages/id
-  or:    curl $domain/messages/id -X DELETE
-  or:    curl $domain/messages/all
-  or:    curl $domain/messages/stats\n`
+    res.end(
+`Usage: curl $domain/messages/ -d "message"
+or:    curl $domain/messages/id
+or:    curl $domain/messages/id -X DELETE
+or:    curl $domain/messages/all
+or:    curl $domain/messages/stats\n`
   )})
 
   // once db and collection is established, start listening
